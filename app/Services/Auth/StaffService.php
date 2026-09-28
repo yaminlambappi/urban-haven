@@ -5,12 +5,7 @@ namespace App\Services\Auth;
 use App\Contracts\AuditLogger;
 use App\Models\Role;
 use App\Models\User;
-use Illuminate\Auth\Events\PasswordReset;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Session;
-use Illuminate\Validation\ValidationException;
 
 class StaffService
 {
@@ -109,16 +104,5 @@ class StaffService
     public function invalidateSessions(User $user): void
     {
         DB::table('sessions')->where('user_id', $user->id)->delete();
-        Auth::logoutOtherDevices(Hash::make(StrRandomFallback($user)));
     }
-}
-
-/**
- * Session invalidation for Redis/database session drivers uses the sessions table
- * plus a password bump when a new password is supplied. For deactivation, the
- * EnsureStaffIsActive middleware logs the user out on the next request.
- */
-function StrRandomFallback(User $user): string
-{
-    return $user->password;
 }

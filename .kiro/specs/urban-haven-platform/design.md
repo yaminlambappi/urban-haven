@@ -1032,3 +1032,190 @@ graph LR
 | Nginx | PHP-FPM upstream |
 | PHP | 8.3+ |
 | S3-compatible storage | Media files (AWS S3 or local MinIO) |
+
+
+---
+
+## Correctness Properties
+
+*A property is a characteristic or behavior that should hold true across all valid executions of a system — essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
+
+### Property 1: MFA Session Enforcement
+
+*For any* authenticated owner_admin user who has not completed TOTP verification in the current session, every request to any `/admin/*` route must result in a redirect to the MFA challenge page.
+
+**Validates: Requirement 2.3**
+
+### Property 2: Recovery Code Single-Use
+
+*For any* unused recovery code issued to an owner_admin user, consuming it once must mark it as used; a subsequent attempt to use the same code must fail and not grant MFA-verified access.
+
+**Validates: Requirement 2.5**
+
+### Property 3: Deactivated Staff Lockout
+
+*For any* deactivated staff user, any request to any `/admin/*` route must result in session invalidation and redirect to the login page.
+
+**Validates: Requirement 2.6**
+
+### Property 4: Owner Admin Gate Bypass
+
+*For any* permission key and any user with the `owner_admin` role, `User::hasPermission()` must return `true` via the `before()` gate hook.
+
+**Validates: Requirement 2.8**
+
+### Property 5: Settings Round-Trip
+
+*For any* valid setting `key`, `value`, and `cast` type, writing a setting then reading it back must return the correctly typed value (e.g., integer cast returns an integer, boolean cast returns a boolean).
+
+**Validates: Requirement 3.2**
+
+### Property 6: Inactive Reference Data Exclusion
+
+*For any* reference data item (location_area, property_type, or amenity) with `is_active = false`, the item must not appear in any admin option list for inventory creation or editing.
+
+**Validates: Requirement 3.4**
+
+### Property 7: Media Derivative Generation
+
+*For any* valid uploaded image, after processing by the MediaService, derivative files must exist at widths 480, 768, 1280, and 1920 pixels in WebP format.
+
+**Validates: Requirement 4.2**
+
+### Property 8: Invalid Upload Rejection
+
+*For any* uploaded file that either exceeds 8192 KB or has a disallowed MIME type, the MediaService must return a 422 error and no media record or file must be created.
+
+**Validates: Requirements 4.1, 4.3**
+
+### Property 9: Media Reorder Consistency
+
+*For any* ordered array of media IDs submitted to the reorder endpoint, after the operation each media item's `sort_order` must equal its position in the submitted array.
+
+**Validates: Requirement 4.6**
+
+### Property 10: Area Conversion Correctness
+
+*For any* positive finite `area_value` and valid `area_unit` key, the `area_sqft` stored on the property must equal `AreaConverter::toSqft(area_value, area_unit)` rounded to 4 decimal places, and must be positive.
+
+**Validates: Requirement 5.2**
+
+### Property 11: Slug Uniqueness
+
+*For any* two distinct Properties or Projects, their slugs must differ even when their names are identical (enforced by numeric suffix appending).
+
+**Validates: Requirements 5.3, 5.4**
+
+### Property 12: Publication State Machine Validity
+
+*For any* publishable item and any requested state transition that does not follow the allowed sequence (`draft` → `pending_review` → `approved` → `published` → `unpublished`), the Publication_System must reject the transition and preserve the current status.
+
+**Validates: Requirement 6.7**
+
+### Property 13: Cache Flush on Publish/Unpublish
+
+*For any* Property or Project that transitions to `published` or `unpublished`, all associated Redis cache tags must be flushed so that subsequent reads reflect the new state.
+
+**Validates: Requirement 6.8**
+
+### Property 14: Search Returns Only Published Records
+
+*For any* combination of search filters, the SearchService must return only Properties whose `publication_states.status` equals `published`; no draft, pending, approved, or unpublished record must appear in results.
+
+**Validates: Requirement 8.1**
+
+### Property 15: Search Filter Monotonicity
+
+*For any* search query, adding one or more additional filters must not increase the total result count (adding constraints can only reduce or preserve the set).
+
+**Validates: Requirement 8.3**
+
+### Property 16: Unpublished Property Returns 404
+
+*For any* property slug where the corresponding property is not in `published` state and no redirect record exists, a GET request to `/properties/{slug}` must return HTTP 404.
+
+**Validates: Requirement 9.3**
+
+### Property 17: Money Formatting Invariant
+
+*For any* finite numeric price value, `MoneyFormatter::formatBdt()` must return a string that begins with `BDT `; for a null or empty price, it must return exactly `Price on request`.
+
+**Validates: Requirement 9.4**
+
+### Property 18: Map Coordinate Approximation
+
+*For any* published property with exact latitude/longitude coordinates, the coordinates exposed to the Map_Component must be rounded to at most 2 decimal places.
+
+**Validates: Requirement 11.1**
+
+### Property 19: Similar Properties Invariants
+
+*For any* published source property, the SimilarPropertiesService must return at most 6 results, all of which have `publication_states.status = published`, and none of which has the same `id` as the source property.
+
+**Validates: Requirements 13.1, 13.4, 13.5**
+
+### Property 20: Lead Capture Idempotency
+
+*For any* enquiry submitted twice with the same phone number and property_id within the configured repeat window, only one lead record must exist in the database and no second notification job must be dispatched.
+
+**Validates: Requirement 14.2**
+
+### Property 21: Lead UTM Attribution Round-Trip
+
+*For any* HTTP request to the lead capture endpoint that includes `utm_source`, `utm_medium`, and `utm_campaign` query parameters, the persisted lead record must contain the same UTM values.
+
+**Validates: Requirement 14.3**
+
+### Property 22: Follow-Up Action Type Constraint
+
+*For any* follow-up record created by the LeadService, the `action_type` field must be one of the five permitted values: `call`, `email`, `whatsapp`, `meeting`, `note`.
+
+**Validates: Requirement 16.2**
+
+### Property 23: Lead Export Date Range Completeness
+
+*For any* export request with a specified date range, every lead with `created_at` within the range (inclusive) must appear in the CSV, and no lead outside the range must appear.
+
+**Validates: Requirement 19.1**
+
+### Property 24: CMS HTML Sanitization
+
+*For any* HTML string submitted as CMS page body that contains tags or attributes not in the purifier's allowlist, the stored body must not contain those disallowed elements.
+
+**Validates: Requirement 20.2**
+
+### Property 25: Sitemap Contains Only Published Slugs
+
+*For any* generated sitemap XML, every `<loc>` URL must correspond to a currently published Property, Project, or CMS page (or one of the three static routes); no unpublished item's slug must appear.
+
+**Validates: Requirement 22.3**
+
+### Property 26: SEO Override Priority
+
+*For any* public page that has a `seo_overrides` record, the rendered `<meta name="title">` and `<meta name="description">` tags must use the override values, not the model defaults.
+
+**Validates: Requirement 22.1**
+
+### Property 27: Analytics Script Conditional Rendering
+
+*For any* public page response, the analytics script tag must be present in the rendered HTML if and only if the `analytics_script` setting contains a non-empty value.
+
+**Validates: Requirement 23.1**
+
+### Property 28: CSRF Protection on State-Changing Requests
+
+*For any* POST, PUT, PATCH, or DELETE request that omits a valid CSRF token, the System must return HTTP 419 and must not execute the intended action.
+
+**Validates: Requirement 24.1**
+
+### Property 29: Rate Limit on Login
+
+*For any* sequence of more than 5 login attempts from the same IP address within a 60-second window, the sixth and subsequent attempts must receive HTTP 429.
+
+**Validates: Requirement 2.10**
+
+### Property 30: Rate Limit on Lead Capture
+
+*For any* sequence of more than 10 lead capture requests from the same IP address within a 60-second window, the eleventh and subsequent requests must receive HTTP 429.
+
+**Validates: Requirement 14.6**

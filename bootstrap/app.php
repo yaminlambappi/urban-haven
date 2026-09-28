@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Middleware\EnsureStaffIsActive;
+use App\Http\Middleware\SetLocale;
+use App\Support\JsonError;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -12,10 +15,25 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->web(append: [
+            SetLocale::class,
+        ]);
+
+        $middleware->alias([
+            'staff.active' => EnsureStaffIsActive::class,
+        ]);
+
+        $middleware->redirectGuestsTo(fn () => route('admin.login'));
+        $middleware->redirectUsersTo(fn () => route('admin.dashboard'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+
+        $exceptions->render(function (Throwable $e, Request $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return JsonError::fromThrowable($e);
+            }
+        });
     })->create();

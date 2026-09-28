@@ -7,12 +7,11 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'is_active', 'mfa_secret', 'mfa_enabled_at', 'last_login_at'])]
-#[Hidden(['password', 'remember_token', 'mfa_secret'])]
+#[Fillable(['name', 'email', 'password', 'is_active', 'last_login_at'])]
+#[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -24,8 +23,6 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
-            'mfa_secret' => 'encrypted',
-            'mfa_enabled_at' => 'datetime',
             'last_login_at' => 'datetime',
         ];
     }
@@ -33,11 +30,6 @@ class User extends Authenticatable
     public function roles(): BelongsToMany
     {
         return $this->belongsToMany(Role::class);
-    }
-
-    public function recoveryCodes(): HasMany
-    {
-        return $this->hasMany(MfaRecoveryCode::class);
     }
 
     public function hasRole(string $key): bool
@@ -58,11 +50,6 @@ class User extends Authenticatable
         }
 
         return $this->roles()->whereHas('permissions', fn ($query) => $query->where('key', $key))->exists();
-    }
-
-    public function hasMfaEnabled(): bool
-    {
-        return $this->mfa_enabled_at !== null && filled($this->mfa_secret);
     }
 
     public function isOwnerAdmin(): bool

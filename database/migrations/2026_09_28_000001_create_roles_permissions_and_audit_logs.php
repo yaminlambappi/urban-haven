@@ -36,14 +36,6 @@ return new class extends Migration
             $table->unique(['permission_id', 'role_id']);
         });
 
-        Schema::create('mfa_recovery_codes', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->string('code_hash');
-            $table->timestamp('used_at')->nullable();
-            $table->timestamps();
-        });
-
         Schema::create('audit_logs', function (Blueprint $table) {
             $table->id();
             $table->foreignId('actor_id')->nullable()->constrained('users')->nullOnDelete();
@@ -63,7 +55,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('audit_logs');
-        Schema::dropIfExists('mfa_recovery_codes');
         Schema::dropIfExists('permission_role');
         Schema::dropIfExists('role_user');
         Schema::dropIfExists('permissions');

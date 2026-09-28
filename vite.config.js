@@ -12,6 +12,12 @@ export default defineConfig({
                 bunny('Instrument Sans', {
                     weights: [400, 500, 600],
                 }),
+                bunny('Instrument Serif', {
+                    weights: [400],
+                }),
+                bunny('Noto Sans Bengali', {
+                    weights: [400, 500, 600],
+                }),
             ],
         }),
         tailwindcss(),
